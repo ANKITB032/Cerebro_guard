@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CerebroGuard · Phishing Detection</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet" />
+<style>
+  /* ── Reset & Variables ───────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #060a0f;
+    --surface:   #0c1219;
+    --border:    #1a2a3a;
+    --cyan:      #00e5ff;
+    --cyan-dim:  #0097a7;
+    --amber:     #ffb300;
+    --red:       #ff3d3d;
+    --green:     #00e676;
+    --text:      #cdd9e5;
+    --muted:     #4a6070;
+    --font-head: 'Bebas Neue', sans-serif;
+    --font-mono: 'IBM Plex Mono', monospace;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1.6;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Grid noise background ───────────────────────────── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,229,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── Header ──────────────────────────────────────────── */
+  header {
+    position: relative;
+    z-index: 10;
+    border-bottom: 1px solid var(--border);
+    padding: 18px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: linear-gradient(180deg, rgba(0,229,255,0.05) 0%, transparent 100%);
+  }
+
+  .logo {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+  }
+
+  .logo-text {
+    font-family: var(--font-head);
+    font-size: 32px;
+    letter-spacing: 3px;
+    color: var(--cyan);
+    text-shadow: 0 0 20px rgba(0,229,255,0.4);
+  }
+
+  .logo-tag {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .status-bar {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+  }
+
+  .status-dot {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 1px;
+  }
+
+  .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--muted);
+  }
+  .dot.online { background: var(--green); box-shadow: 0 0 8px var(--green); animation: pulse 2s infinite; }
+  .dot.warn   { background: var(--amber); box-shadow: 0 0 8px var(--amber); }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.4; }
+  }
+
+  /* ── Main layout ─────────────────────────────────────── */
+  main {
+    position: relative;
+    z-index: 1;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 32px 24px 80px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+
+  /* ── Panel base ──────────────────────────────────────── */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .panel-header {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(0,229,255,0.03);
+  }
+
+  .panel-title {
+    font-family: var(--font-head);
+    font-size: 15px;
+    letter-spacing: 2px;
+    color: var(--cyan);
+  }
+
+  .panel-num {
+    font-size: 10px;
+    color: var(--muted);
+    margin-left: auto;
+  }
+
+  .panel-body {
+    padding: 20px;
+  }
+
+  /* ── Form ────────────────────────────────────────────── */
+  .input-panel { grid-column: 1; }
+
+  .field {
+    margin-bottom: 14px;
+  }
+
+  label {
+    display: block;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  input, textarea {
+    width: 100%;
+    background: rgba(0,0,0,0.4);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    padding: 8px 12px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    outline: none;
+  }
+
+  input:focus, textarea:focus {
+    border-color: var(--cyan-dim);
+    box-shadow: 0 0 0 2px rgba(0,229,255,0.08);
+  }
+
+  textarea {
+    resize: vertical;
+    min-height: 120px;
+  }
+
+  .field-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .btn-analyze {
+    width: 100%;
+    margin-top: 6px;
+    padding: 13px;
+    background: transparent;
+    border: 1px solid var(--cyan);
+    color: var(--cyan);
+    font-family: var(--font-head);
+    font-size: 18px;
+    letter-spacing: 4px;
+    cursor: pointer;
+    transition: background 0.2s, box-shadow 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn-analyze:hover {
+    background: rgba(0,229,255,0.08);
+    box-shadow: 0 0 20px rgba(0,229,255,0.2), inset 0 0 20px rgba(0,229,255,0.05);
+  }
+
+  .btn-analyze:active { transform: scale(0.99); }
+
+  .btn-analyze.loading {
+    color: var(--muted);
+    border-color: var(--muted);
+    pointer-events: none;
+  }
+
+  .btn-analyze .spinner {
+    display: none;
+    width: 14px; height: 14px;
+    border: 2px solid var(--muted);
+    border-top-color: var(--cyan);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    margin: 0 auto;
+  }
+
+  .btn-analyze.loading .btn-label { display: none; }
+  .btn-analyze.loading .spinner   { display: block; }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Result panel ────────────────────────────────────── */
+  .result-panel {
+    grid-column: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  /* ── Risk gauge ──────────────────────────────────────── */
+  .gauge-panel .panel-body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 20px 20px;
+  }
+
+  .gauge-wrap {
+    position: relative;
+    width: 200px;
+    height: 110px;
+  }
+
+  .gauge-wrap svg { overflow: visible; }
+
+  .gauge-score {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    text-align: center;
+  }
+
+  .gauge-number {
+    font-family: var(--font-head);
+    font-size: 48px;
+    line-height: 1;
+    color: var(--cyan);
+    transition: color 0.5s;
+  }
+
+  .gauge-label {
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+
+  .verdict-badge {
+    margin-top: 16px;
+    padding: 6px 20px;
+    border: 1px solid var(--cyan);
+    font-family: var(--font-head);
+    font-size: 20px;
+    letter-spacing: 4px;
+    color: var(--cyan);
+    transition: all 0.4s;
+  }
+
+  .verdict-badge.phishing  { border-color: var(--red);   color: var(--red);   box-shadow: 0 0 16px rgba(255,61,61,0.3); }
+  .verdict-badge.suspicious { border-color: var(--amber); color: var(--amber); box-shadow: 0 0 16px rgba(255,179,0,0.3); }
+  .verdict-badge.safe       { border-color: var(--green); color: var(--green); box-shadow: 0 0 16px rgba(0,230,118,0.3); }
+
+  .confidence-row {
+    margin-top: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .conf-bar {
+    flex: 1;
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .conf-fill {
+    height: 100%;
+    background: var(--cyan-dim);
+    border-radius: 2px;
+    width: 0;
+    transition: width 0.8s ease;
+  }
+
+  /* ── Evidence list ───────────────────────────────────── */
+  .evidence-panel { flex: 1; }
+
+  .evidence-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 320px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+
+  .evidence-item {
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 10px 12px;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 10px;
+    align-items: start;
+    animation: slideIn 0.3s ease both;
+  }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateX(10px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+
+  .sev-bar {
+    width: 3px;
+    border-radius: 2px;
+    align-self: stretch;
+    min-height: 30px;
+  }
+
+  .sev-bar.critical { background: var(--red); }
+  .sev-bar.high     { background: #ff6b35; }
+  .sev-bar.medium   { background: var(--amber); }
+  .sev-bar.low      { background: var(--green); }
+
+  .ev-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 2px;
+  }
+
+  .ev-desc {
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.4;
+  }
+
+  .ev-score {
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .ev-score.pos { color: var(--red); }
+  .ev-score.neg { color: var(--green); }
+
+  /* ── Entity chips ────────────────────────────────────── */
+  .entities-panel { }
+
+  .entity-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .chip {
+    padding: 3px 9px;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    font-size: 10px;
+    letter-spacing: 0.5px;
+  }
+
+  .chip.MONEY  { border-color: var(--amber); color: var(--amber); }
+  .chip.ORG    { border-color: var(--cyan-dim); color: var(--cyan-dim); }
+  .chip.PERSON { border-color: #b39ddb; color: #b39ddb; }
+  .chip.GPE    { border-color: var(--green); color: var(--green); }
+  .chip.DATE   { border-color: var(--muted); color: var(--muted); }
+
+  /* ── Graph stats ─────────────────────────────────────── */
+  .graph-panel {}
+
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+
+  .stat-box {
+    border: 1px solid var(--border);
+    padding: 10px;
+    text-align: center;
+  }
+
+  .stat-val {
+    font-family: var(--font-head);
+    font-size: 22px;
+    color: var(--cyan);
+  }
+
+  .stat-key {
+    font-size: 9px;
+    letter-spacing: 1px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+
+  /* ── Empty state ─────────────────────────────────────── */
+  .empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--muted);
+  }
+
+  .empty-icon {
+    font-size: 32px;
+    margin-bottom: 12px;
+    opacity: 0.3;
+  }
+
+  .empty-text {
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  /* ── Error toast ─────────────────────────────────────── */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: #1a0a0a;
+    border: 1px solid var(--red);
+    color: var(--red);
+    font-size: 12px;
+    padding: 12px 18px;
+    z-index: 100;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.3s;
+    pointer-events: none;
+    max-width: 300px;
+  }
+
+  .toast.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* ── Responsive ──────────────────────────────────────── */
+  @media (max-width: 768px) {
+    main { grid-template-columns: 1fr; }
+    .input-panel { grid-column: 1; }
+    .result-panel { grid-column: 1; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <span class="logo-text">CerebroGuard</span>
+    <span class="logo-tag">v2.0 // Phishing Detection</span>
+  </div>
+  <div class="status-bar">
+    <div class="status-dot" id="graph-status">
+      <div class="dot" id="graph-dot"></div>
+      <span id="graph-label">GRAPH</span>
+    </div>
+    <div class="status-dot" id="nlp-status">
+      <div class="dot" id="nlp-dot"></div>
+      <span id="nlp-label">NLP</span>
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- ── Input panel ── -->
+  <div class="panel input-panel">
+    <div class="panel-header">
+      <span class="panel-title">Email Intake</span>
+      <span class="panel-num">01</span>
+    </div>
+    <div class="panel-body">
+      <div class="field-row">
+        <div class="field">
+          <label>Sender</label>
+          <input type="email" id="sender" placeholder="attacker@evil.com" />
+        </div>
+        <div class="field">
+          <label>Recipient</label>
+          <input type="email" id="recipient" placeholder="victim@corp.com" />
+        </div>
+      </div>
+      <div class="field">
+        <label>Subject</label>
+        <input type="text" id="subject" placeholder="URGENT: Action required" />
+      </div>
+      <div class="field">
+        <label>Body</label>
+        <textarea id="body" placeholder="Paste email body here..."></textarea>
+      </div>
+      <div class="field">
+        <label>CC Recipients (comma-separated)</label>
+        <input type="text" id="cc" placeholder="a@b.com, c@d.com" />
+      </div>
+      <button class="btn-analyze" id="analyzeBtn" onclick="analyze()">
+        <span class="btn-label">ANALYZE</span>
+        <div class="spinner"></div>
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Result panel ── -->
+  <div class="result-panel">
+
+    <!-- Gauge -->
+    <div class="panel gauge-panel">
+      <div class="panel-header">
+        <span class="panel-title">Risk Score</span>
+        <span class="panel-num">02</span>
+      </div>
+      <div class="panel-body">
+        <div id="gaugeEmpty" class="empty-state">
+          <div class="empty-icon">◎</div>
+          <div class="empty-text">Awaiting Analysis</div>
+        </div>
+        <div id="gaugeResult" style="display:none; flex-direction:column; align-items:center;">
+          <div class="gauge-wrap">
+            <svg width="200" height="110" viewBox="0 0 200 110">
+              <!-- Background arc -->
+              <path id="gaugeBg" d="M20,100 A80,80 0 0,1 180,100"
+                fill="none" stroke="#1a2a3a" stroke-width="10" stroke-linecap="round"/>
+              <!-- Value arc -->
+              <path id="gaugeArc" d="M20,100 A80,80 0 0,1 180,100"
+                fill="none" stroke="#00e5ff" stroke-width="10" stroke-linecap="round"
+                stroke-dasharray="251.2" stroke-dashoffset="251.2"
+                style="transition: stroke-dashoffset 1s ease, stroke 0.5s ease;"/>
+            </svg>
+            <div class="gauge-score">
+              <div class="gauge-number" id="gaugeNumber">0</div>
+              <div class="gauge-label">/ 100</div>
+            </div>
+          </div>
+          <div class="verdict-badge" id="verdictBadge">—</div>
+          <div class="confidence-row">
+            <span id="confLabel">CONFIDENCE</span>
+            <div class="conf-bar"><div class="conf-fill" id="confFill"></div></div>
+            <span id="confPct">—</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Evidence -->
+    <div class="panel evidence-panel">
+      <div class="panel-header">
+        <span class="panel-title">Evidence Factors</span>
+        <span class="panel-num">03</span>
+      </div>
+      <div class="panel-body">
+        <div id="evidenceEmpty" class="empty-state" style="padding:20px;">
+          <div class="empty-text">No evidence yet</div>
+        </div>
+        <div id="evidenceList" class="evidence-list" style="display:none;"></div>
+      </div>
+    </div>
+
+    <!-- NLP Entities -->
+    <div class="panel entities-panel" id="entitiesPanel" style="display:none;">
+      <div class="panel-header">
+        <span class="panel-title">NLP Entities</span>
+        <span class="panel-num">04</span>
+      </div>
+      <div class="panel-body">
+        <div class="entity-chips" id="entityChips"></div>
+      </div>
+    </div>
+
+    <!-- Graph Stats -->
+    <div class="panel graph-panel" id="graphPanel" style="display:none;">
+      <div class="panel-header">
+        <span class="panel-title">Graph Intelligence</span>
+        <span class="panel-num">05</span>
+      </div>
+      <div class="panel-body">
+        <div class="stat-grid" id="statGrid"></div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  // ── Health check on load ──────────────────────────────
+  async function checkHealth() {
+    try {
+      const res = await fetch('/health');
+      const data = await res.json();
+
+      const gDot   = document.getElementById('graph-dot');
+      const nDot   = document.getElementById('nlp-dot');
+      const gLabel = document.getElementById('graph-label');
+      const nLabel = document.getElementById('nlp-label');
+
+      if (data.graph_loaded) { gDot.classList.add('online'); gLabel.textContent = 'GRAPH ✓'; }
+      else                   { gDot.classList.add('warn');   gLabel.textContent = 'GRAPH —'; }
+
+      if (data.nlp_loaded)   { nDot.classList.add('online'); nLabel.textContent = 'NLP ✓'; }
+      else                   { nDot.classList.add('warn');   nLabel.textContent = 'NLP —'; }
+    } catch(e) {
+      // server not ready yet — retry
+      setTimeout(checkHealth, 3000);
+    }
+  }
+
+  // Poll until graph/NLP are ready (they load in background)
+  async function pollHealth() {
+    await checkHealth();
+    setTimeout(pollHealth, 10000);
+  }
+
+  pollHealth();
+
+  // ── Gauge arc helper ──────────────────────────────────
+  function setGauge(score) {
+    const arc   = document.getElementById('gaugeArc');
+    const total = 251.2;
+    const offset = total - (score / 100) * total;
+    arc.style.strokeDashoffset = offset;
+
+    const color = score >= 70 ? '#ff3d3d' : score >= 35 ? '#ffb300' : '#00e676';
+    arc.style.stroke = color;
+    document.getElementById('gaugeNumber').style.color = color;
+  }
+
+  // ── Animated counter ──────────────────────────────────
+  function animateCount(el, target, duration = 800) {
+    const start = Date.now();
+    const tick = () => {
+      const p = Math.min(1, (Date.now() - start) / duration);
+      const ease = 1 - Math.pow(1 - p, 3);
+      el.textContent = Math.round(ease * target);
+      if (p < 1) requestAnimationFrame(tick);
+    };
+    tick();
+  }
+
+  // ── Toast helper ──────────────────────────────────────
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 4000);
+  }
+
+  // ── Main analyze ──────────────────────────────────────
+  async function analyze() {
+    const sender    = document.getElementById('sender').value.trim();
+    const recipient = document.getElementById('recipient').value.trim();
+    const subject   = document.getElementById('subject').value.trim();
+    const body      = document.getElementById('body').value.trim();
+    const ccRaw     = document.getElementById('cc').value.trim();
+    const cc        = ccRaw ? ccRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
+
+    if (!sender || !recipient) {
+      showToast('Sender and recipient are required.');
+      return;
+    }
+
+    const btn = document.getElementById('analyzeBtn');
+    btn.classList.add('loading');
+
+    try {
+      const res = await fetch('/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sender, recipient, subject, body, cc }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || `HTTP ${res.status}`);
+      }
+
+      const data = await res.json();
+      renderResult(data);
+
+    } catch(e) {
+      showToast('Analysis failed: ' + e.message);
+    } finally {
+      btn.classList.remove('loading');
+    }
+  }
+
+  // ── Render result ─────────────────────────────────────
+  function renderResult(data) {
+    const { risk_score, verdict, confidence, evidence, graph_stats, nlp_entities } = data;
+
+    // Gauge
+    document.getElementById('gaugeEmpty').style.display  = 'none';
+    document.getElementById('gaugeResult').style.display = 'flex';
+
+    const numEl = document.getElementById('gaugeNumber');
+    animateCount(numEl, Math.round(risk_score));
+    setTimeout(() => setGauge(risk_score), 50);
+
+    const badge = document.getElementById('verdictBadge');
+    badge.textContent = verdict.toUpperCase();
+    badge.className   = `verdict-badge ${verdict}`;
+
+    const confPct  = Math.round(confidence * 100);
+    document.getElementById('confPct').textContent  = confPct + '%';
+    document.getElementById('confFill').style.width = confPct + '%';
+
+    // Evidence
+    const listEl = document.getElementById('evidenceList');
+    const empEl  = document.getElementById('evidenceEmpty');
+
+    if (evidence && evidence.length) {
+      empEl.style.display  = 'none';
+      listEl.style.display = 'flex';
+      listEl.innerHTML = '';
+
+      evidence
+        .slice()
+        .sort((a, b) => Math.abs(b.score_contribution) - Math.abs(a.score_contribution))
+        .forEach((ev, i) => {
+          const pos = ev.score_contribution > 0;
+          const item = document.createElement('div');
+          item.className = 'evidence-item';
+          item.style.animationDelay = (i * 60) + 'ms';
+          item.innerHTML = `
+            <div class="sev-bar ${ev.severity}"></div>
+            <div>
+              <div class="ev-label">${escHtml(ev.label)}</div>
+              <div class="ev-desc">${escHtml(ev.description)}</div>
+            </div>
+            <div class="ev-score ${pos ? 'pos' : 'neg'}">
+              ${pos ? '+' : ''}${ev.score_contribution}
+            </div>
+          `;
+          listEl.appendChild(item);
+        });
+    } else {
+      empEl.style.display  = 'block';
+      listEl.style.display = 'none';
+    }
+
+    // NLP Entities
+    const entPanel = document.getElementById('entitiesPanel');
+    const chips    = document.getElementById('entityChips');
+    if (nlp_entities && nlp_entities.length) {
+      entPanel.style.display = 'block';
+      chips.innerHTML = '';
+      const seen = new Set();
+      nlp_entities.forEach(ent => {
+        const key = ent.text + ent.label;
+        if (seen.has(key)) return;
+        seen.add(key);
+        const c = document.createElement('span');
+        c.className = `chip ${ent.label}`;
+        c.textContent = `${ent.text} · ${ent.label}`;
+        chips.appendChild(c);
+      });
+    } else {
+      entPanel.style.display = 'none';
+    }
+
+    // Graph stats
+    const graphPanel = document.getElementById('graphPanel');
+    const statGrid   = document.getElementById('statGrid');
+    if (graph_stats && graph_stats.status !== 'unavailable' && Object.keys(graph_stats).length > 1) {
+      graphPanel.style.display = 'block';
+      statGrid.innerHTML = '';
+
+      const statMap = {
+        'sender_known':     { label: 'Sender Known',    fmt: v => v ? 'YES' : 'NO' },
+        'recipient_known':  { label: 'Recip. Known',    fmt: v => v ? 'YES' : 'NO' },
+        'prior_contact':    { label: 'Prior Contact',   fmt: v => v ? 'YES' : 'NO' },
+        'sender_degree':    { label: 'Connections',     fmt: v => v },
+        'sender_pagerank':  { label: 'PageRank',        fmt: v => v.toFixed(4) },
+        'total_nodes':      { label: 'Network Size',    fmt: v => v.toLocaleString() },
+      };
+
+      Object.entries(statMap).forEach(([key, conf]) => {
+        if (!(key in graph_stats)) return;
+        const box = document.createElement('div');
+        box.className = 'stat-box';
+        box.innerHTML = `
+          <div class="stat-val">${conf.fmt(graph_stats[key])}</div>
+          <div class="stat-key">${conf.label}</div>
+        `;
+        statGrid.appendChild(box);
+      });
+    } else {
+      graphPanel.style.display = 'none';
+    }
+  }
+
+  function escHtml(str) {
+    return String(str)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // Allow Enter to submit from single-line inputs
+  document.querySelectorAll('input').forEach(el => {
+    el.addEventListener('keydown', e => { if (e.key === 'Enter') analyze(); });
+  });
+</script>
+</body>
+</html>
