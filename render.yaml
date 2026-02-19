@@ -1,18 +1,10 @@
 services:
   - type: web
-    name: cerebroguard-api
+    name: cerebroguard
     env: python
-    buildCommand: pip install -r backend/requirements.txt && python -m spacy download en_core_web_sm
-    startCommand: cd backend && gunicorn main:app -k uvicorn.workers.UvicornWorker --workers 2 --bind 0.0.0.0:$PORT
+    pythonVersion: "3.11"
+    buildCommand: pip install -r requirements.txt && python -m spacy download en_core_web_sm
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
-      - key: PYTHON_VERSION
-        value: 3.11.0
-
-  - type: web
-    name: cerebroguard-frontend
-    env: node
-    buildCommand: cd frontend && npm ci && npm run build
-    startCommand: cd frontend && npm run preview -- --port $PORT --host
-    envVars:
-      - key: VITE_API_URL
-        sync: false
+      - key: GRAPH_PATH
+        value: data/enron_graph.graphml
