@@ -8,7 +8,6 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet" />
 <style>
-  /* ── Reset & Variables ───────────────────────────────── */
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   :root {
@@ -38,7 +37,6 @@
     overflow-x: hidden;
   }
 
-  /* ── Grid noise background ───────────────────────────── */
   body::before {
     content: '';
     position: fixed;
@@ -51,7 +49,6 @@
     z-index: 0;
   }
 
-  /* ── Header ──────────────────────────────────────────── */
   header {
     position: relative;
     z-index: 10;
@@ -63,11 +60,7 @@
     background: linear-gradient(180deg, rgba(0,229,255,0.05) 0%, transparent 100%);
   }
 
-  .logo {
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
-  }
+  .logo { display: flex; align-items: baseline; gap: 10px; }
 
   .logo-text {
     font-family: var(--font-head);
@@ -84,35 +77,25 @@
     text-transform: uppercase;
   }
 
-  .status-bar {
+  .engine-badges {
     display: flex;
-    gap: 20px;
-    align-items: center;
+    gap: 8px;
   }
 
-  .status-dot {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 10px;
+  .badge {
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    padding: 4px 10px;
+    border: 1px solid var(--border);
     color: var(--muted);
-    letter-spacing: 1px;
+    text-transform: uppercase;
   }
 
-  .dot {
-    width: 6px; height: 6px;
-    border-radius: 50%;
-    background: var(--muted);
-  }
-  .dot.online { background: var(--green); box-shadow: 0 0 8px var(--green); animation: pulse 2s infinite; }
-  .dot.warn   { background: var(--amber); box-shadow: 0 0 8px var(--amber); }
-
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50%       { opacity: 0.4; }
+  .badge.active {
+    border-color: var(--cyan-dim);
+    color: var(--cyan);
   }
 
-  /* ── Main layout ─────────────────────────────────────── */
   main {
     position: relative;
     z-index: 1;
@@ -124,7 +107,6 @@
     gap: 24px;
   }
 
-  /* ── Panel base ──────────────────────────────────────── */
   .panel {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -148,22 +130,12 @@
     color: var(--cyan);
   }
 
-  .panel-num {
-    font-size: 10px;
-    color: var(--muted);
-    margin-left: auto;
-  }
+  .panel-num { font-size: 10px; color: var(--muted); margin-left: auto; }
+  .panel-body { padding: 20px; }
 
-  .panel-body {
-    padding: 20px;
-  }
-
-  /* ── Form ────────────────────────────────────────────── */
   .input-panel { grid-column: 1; }
 
-  .field {
-    margin-bottom: 14px;
-  }
+  .field { margin-bottom: 14px; }
 
   label {
     display: block;
@@ -192,16 +164,9 @@
     box-shadow: 0 0 0 2px rgba(0,229,255,0.08);
   }
 
-  textarea {
-    resize: vertical;
-    min-height: 120px;
-  }
+  textarea { resize: vertical; min-height: 120px; }
 
-  .field-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-  }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
   .btn-analyze {
     width: 100%;
@@ -215,8 +180,6 @@
     letter-spacing: 4px;
     cursor: pointer;
     transition: background 0.2s, box-shadow 0.2s;
-    position: relative;
-    overflow: hidden;
   }
 
   .btn-analyze:hover {
@@ -247,15 +210,8 @@
 
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  /* ── Result panel ────────────────────────────────────── */
-  .result-panel {
-    grid-column: 2;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-  }
+  .result-panel { grid-column: 2; display: flex; flex-direction: column; gap: 16px; }
 
-  /* ── Risk gauge ──────────────────────────────────────── */
   .gauge-panel .panel-body {
     display: flex;
     flex-direction: column;
@@ -263,12 +219,7 @@
     padding: 24px 20px 20px;
   }
 
-  .gauge-wrap {
-    position: relative;
-    width: 200px;
-    height: 110px;
-  }
-
+  .gauge-wrap { position: relative; width: 200px; height: 110px; }
   .gauge-wrap svg { overflow: visible; }
 
   .gauge-score {
@@ -286,13 +237,7 @@
     transition: color 0.5s;
   }
 
-  .gauge-label {
-    font-size: 10px;
-    letter-spacing: 2px;
-    color: var(--muted);
-    text-transform: uppercase;
-    margin-top: 2px;
-  }
+  .gauge-label { font-size: 10px; letter-spacing: 2px; color: var(--muted); margin-top: 2px; }
 
   .verdict-badge {
     margin-top: 16px;
@@ -305,7 +250,7 @@
     transition: all 0.4s;
   }
 
-  .verdict-badge.phishing  { border-color: var(--red);   color: var(--red);   box-shadow: 0 0 16px rgba(255,61,61,0.3); }
+  .verdict-badge.phishing   { border-color: var(--red);   color: var(--red);   box-shadow: 0 0 16px rgba(255,61,61,0.3); }
   .verdict-badge.suspicious { border-color: var(--amber); color: var(--amber); box-shadow: 0 0 16px rgba(255,179,0,0.3); }
   .verdict-badge.safe       { border-color: var(--green); color: var(--green); box-shadow: 0 0 16px rgba(0,230,118,0.3); }
 
@@ -318,23 +263,9 @@
     color: var(--muted);
   }
 
-  .conf-bar {
-    flex: 1;
-    height: 3px;
-    background: var(--border);
-    border-radius: 2px;
-    overflow: hidden;
-  }
+  .conf-bar { flex: 1; height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }
+  .conf-fill { height: 100%; background: var(--cyan-dim); border-radius: 2px; width: 0; transition: width 0.8s ease; }
 
-  .conf-fill {
-    height: 100%;
-    background: var(--cyan-dim);
-    border-radius: 2px;
-    width: 0;
-    transition: width 0.8s ease;
-  }
-
-  /* ── Evidence list ───────────────────────────────────── */
   .evidence-panel { flex: 1; }
 
   .evidence-list {
@@ -363,48 +294,19 @@
     to   { opacity: 1; transform: translateX(0); }
   }
 
-  .sev-bar {
-    width: 3px;
-    border-radius: 2px;
-    align-self: stretch;
-    min-height: 30px;
-  }
-
+  .sev-bar { width: 3px; border-radius: 2px; align-self: stretch; min-height: 30px; }
   .sev-bar.critical { background: var(--red); }
   .sev-bar.high     { background: #ff6b35; }
   .sev-bar.medium   { background: var(--amber); }
   .sev-bar.low      { background: var(--green); }
 
-  .ev-label {
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--text);
-    margin-bottom: 2px;
-  }
-
-  .ev-desc {
-    font-size: 11px;
-    color: var(--muted);
-    line-height: 1.4;
-  }
-
-  .ev-score {
-    font-size: 11px;
-    font-weight: 600;
-    white-space: nowrap;
-  }
-
+  .ev-label { font-size: 11px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
+  .ev-desc  { font-size: 11px; color: var(--muted); line-height: 1.4; }
+  .ev-score { font-size: 11px; font-weight: 600; white-space: nowrap; }
   .ev-score.pos { color: var(--red); }
   .ev-score.neg { color: var(--green); }
 
-  /* ── Entity chips ────────────────────────────────────── */
-  .entities-panel { }
-
-  .entity-chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-  }
+  .entity-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 
   .chip {
     padding: 3px 9px;
@@ -414,65 +316,25 @@
     letter-spacing: 0.5px;
   }
 
-  .chip.MONEY  { border-color: var(--amber); color: var(--amber); }
+  .chip.MONEY  { border-color: var(--amber);    color: var(--amber); }
   .chip.ORG    { border-color: var(--cyan-dim); color: var(--cyan-dim); }
-  .chip.PERSON { border-color: #b39ddb; color: #b39ddb; }
-  .chip.GPE    { border-color: var(--green); color: var(--green); }
-  .chip.DATE   { border-color: var(--muted); color: var(--muted); }
+  .chip.PERSON { border-color: #b39ddb;          color: #b39ddb; }
+  .chip.GPE    { border-color: var(--green);     color: var(--green); }
+  .chip.DATE   { border-color: var(--muted);     color: var(--muted); }
 
-  /* ── Graph stats ─────────────────────────────────────── */
-  .graph-panel {}
+  .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 
-  .stat-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
-  }
+  .stat-box { border: 1px solid var(--border); padding: 10px; text-align: center; }
+  .stat-val { font-family: var(--font-head); font-size: 22px; color: var(--cyan); }
+  .stat-key { font-size: 9px; letter-spacing: 1px; color: var(--muted); text-transform: uppercase; margin-top: 2px; }
 
-  .stat-box {
-    border: 1px solid var(--border);
-    padding: 10px;
-    text-align: center;
-  }
+  .empty-state { text-align: center; padding: 40px 20px; color: var(--muted); }
+  .empty-icon  { font-size: 32px; margin-bottom: 12px; opacity: 0.3; }
+  .empty-text  { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; }
 
-  .stat-val {
-    font-family: var(--font-head);
-    font-size: 22px;
-    color: var(--cyan);
-  }
-
-  .stat-key {
-    font-size: 9px;
-    letter-spacing: 1px;
-    color: var(--muted);
-    text-transform: uppercase;
-    margin-top: 2px;
-  }
-
-  /* ── Empty state ─────────────────────────────────────── */
-  .empty-state {
-    text-align: center;
-    padding: 40px 20px;
-    color: var(--muted);
-  }
-
-  .empty-icon {
-    font-size: 32px;
-    margin-bottom: 12px;
-    opacity: 0.3;
-  }
-
-  .empty-text {
-    font-size: 11px;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-  }
-
-  /* ── Error toast ─────────────────────────────────────── */
   .toast {
     position: fixed;
-    bottom: 24px;
-    right: 24px;
+    bottom: 24px; right: 24px;
     background: #1a0a0a;
     border: 1px solid var(--red);
     color: var(--red);
@@ -486,16 +348,11 @@
     max-width: 300px;
   }
 
-  .toast.show {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  .toast.show { opacity: 1; transform: translateY(0); }
 
-  /* ── Responsive ──────────────────────────────────────── */
   @media (max-width: 768px) {
     main { grid-template-columns: 1fr; }
-    .input-panel { grid-column: 1; }
-    .result-panel { grid-column: 1; }
+    .input-panel, .result-panel { grid-column: 1; }
   }
 </style>
 </head>
@@ -506,20 +363,14 @@
     <span class="logo-text">CerebroGuard</span>
     <span class="logo-tag">v2.0 // Phishing Detection</span>
   </div>
-  <div class="status-bar">
-    <div class="status-dot" id="graph-status">
-      <div class="dot" id="graph-dot"></div>
-      <span id="graph-label">GRAPH</span>
-    </div>
-    <div class="status-dot" id="nlp-status">
-      <div class="dot" id="nlp-dot"></div>
-      <span id="nlp-label">NLP</span>
-    </div>
+  <div class="engine-badges">
+    <span class="badge active">Neo4j Graph</span>
+    <span class="badge active">spaCy NLP</span>
+    <span class="badge active">Pattern Analysis</span>
   </div>
 </header>
 
 <main>
-  <!-- ── Input panel ── -->
   <div class="panel input-panel">
     <div class="panel-header">
       <span class="panel-title">Email Intake</span>
@@ -555,10 +406,7 @@
     </div>
   </div>
 
-  <!-- ── Result panel ── -->
   <div class="result-panel">
-
-    <!-- Gauge -->
     <div class="panel gauge-panel">
       <div class="panel-header">
         <span class="panel-title">Risk Score</span>
@@ -572,10 +420,7 @@
         <div id="gaugeResult" style="display:none; flex-direction:column; align-items:center;">
           <div class="gauge-wrap">
             <svg width="200" height="110" viewBox="0 0 200 110">
-              <!-- Background arc -->
-              <path id="gaugeBg" d="M20,100 A80,80 0 0,1 180,100"
-                fill="none" stroke="#1a2a3a" stroke-width="10" stroke-linecap="round"/>
-              <!-- Value arc -->
+              <path d="M20,100 A80,80 0 0,1 180,100" fill="none" stroke="#1a2a3a" stroke-width="10" stroke-linecap="round"/>
               <path id="gaugeArc" d="M20,100 A80,80 0 0,1 180,100"
                 fill="none" stroke="#00e5ff" stroke-width="10" stroke-linecap="round"
                 stroke-dasharray="251.2" stroke-dashoffset="251.2"
@@ -588,7 +433,7 @@
           </div>
           <div class="verdict-badge" id="verdictBadge">—</div>
           <div class="confidence-row">
-            <span id="confLabel">CONFIDENCE</span>
+            <span>CONFIDENCE</span>
             <div class="conf-bar"><div class="conf-fill" id="confFill"></div></div>
             <span id="confPct">—</span>
           </div>
@@ -596,7 +441,6 @@
       </div>
     </div>
 
-    <!-- Evidence -->
     <div class="panel evidence-panel">
       <div class="panel-header">
         <span class="panel-title">Evidence Factors</span>
@@ -610,8 +454,7 @@
       </div>
     </div>
 
-    <!-- NLP Entities -->
-    <div class="panel entities-panel" id="entitiesPanel" style="display:none;">
+    <div class="panel" id="entitiesPanel" style="display:none;">
       <div class="panel-header">
         <span class="panel-title">NLP Entities</span>
         <span class="panel-num">04</span>
@@ -621,8 +464,7 @@
       </div>
     </div>
 
-    <!-- Graph Stats -->
-    <div class="panel graph-panel" id="graphPanel" style="display:none;">
+    <div class="panel" id="graphPanel" style="display:none;">
       <div class="panel-header">
         <span class="panel-title">Graph Intelligence</span>
         <span class="panel-num">05</span>
@@ -631,60 +473,25 @@
         <div class="stat-grid" id="statGrid"></div>
       </div>
     </div>
-
   </div>
 </main>
 
 <div class="toast" id="toast"></div>
 
 <script>
-  // ── Health check on load ──────────────────────────────
-  async function checkHealth() {
-    try {
-      const res = await fetch('/health');
-      const data = await res.json();
-
-      const gDot   = document.getElementById('graph-dot');
-      const nDot   = document.getElementById('nlp-dot');
-      const gLabel = document.getElementById('graph-label');
-      const nLabel = document.getElementById('nlp-label');
-
-      if (data.graph_loaded) { gDot.classList.add('online'); gLabel.textContent = 'GRAPH ✓'; }
-      else                   { gDot.classList.add('warn');   gLabel.textContent = 'GRAPH —'; }
-
-      if (data.nlp_loaded)   { nDot.classList.add('online'); nLabel.textContent = 'NLP ✓'; }
-      else                   { nDot.classList.add('warn');   nLabel.textContent = 'NLP —'; }
-    } catch(e) {
-      // server not ready yet — retry
-      setTimeout(checkHealth, 3000);
-    }
-  }
-
-  // Poll until graph/NLP are ready (they load in background)
-  async function pollHealth() {
-    await checkHealth();
-    setTimeout(pollHealth, 10000);
-  }
-
-  pollHealth();
-
-  // ── Gauge arc helper ──────────────────────────────────
   function setGauge(score) {
-    const arc   = document.getElementById('gaugeArc');
-    const total = 251.2;
-    const offset = total - (score / 100) * total;
+    const arc    = document.getElementById('gaugeArc');
+    const offset = 251.2 - (score / 100) * 251.2;
     arc.style.strokeDashoffset = offset;
-
     const color = score >= 70 ? '#ff3d3d' : score >= 35 ? '#ffb300' : '#00e676';
     arc.style.stroke = color;
     document.getElementById('gaugeNumber').style.color = color;
   }
 
-  // ── Animated counter ──────────────────────────────────
   function animateCount(el, target, duration = 800) {
     const start = Date.now();
     const tick = () => {
-      const p = Math.min(1, (Date.now() - start) / duration);
+      const p    = Math.min(1, (Date.now() - start) / duration);
       const ease = 1 - Math.pow(1 - p, 3);
       el.textContent = Math.round(ease * target);
       if (p < 1) requestAnimationFrame(tick);
@@ -692,7 +499,6 @@
     tick();
   }
 
-  // ── Toast helper ──────────────────────────────────────
   function showToast(msg) {
     const t = document.getElementById('toast');
     t.textContent = msg;
@@ -700,7 +506,6 @@
     setTimeout(() => t.classList.remove('show'), 4000);
   }
 
-  // ── Main analyze ──────────────────────────────────────
   async function analyze() {
     const sender    = document.getElementById('sender').value.trim();
     const recipient = document.getElementById('recipient').value.trim();
@@ -709,10 +514,7 @@
     const ccRaw     = document.getElementById('cc').value.trim();
     const cc        = ccRaw ? ccRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
 
-    if (!sender || !recipient) {
-      showToast('Sender and recipient are required.');
-      return;
-    }
+    if (!sender || !recipient) { showToast('Sender and recipient are required.'); return; }
 
     const btn = document.getElementById('analyzeBtn');
     btn.classList.add('loading');
@@ -726,12 +528,10 @@
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || `HTTP ${res.status}`);
+        throw new Error(err.error || `HTTP ${res.status}`);
       }
 
-      const data = await res.json();
-      renderResult(data);
-
+      renderResult(await res.json());
     } catch(e) {
       showToast('Analysis failed: ' + e.message);
     } finally {
@@ -739,52 +539,46 @@
     }
   }
 
-  // ── Render result ─────────────────────────────────────
   function renderResult(data) {
     const { risk_score, verdict, confidence, evidence, graph_stats, nlp_entities } = data;
 
-    // Gauge
     document.getElementById('gaugeEmpty').style.display  = 'none';
     document.getElementById('gaugeResult').style.display = 'flex';
 
-    const numEl = document.getElementById('gaugeNumber');
-    animateCount(numEl, Math.round(risk_score));
+    animateCount(document.getElementById('gaugeNumber'), Math.round(risk_score));
     setTimeout(() => setGauge(risk_score), 50);
 
     const badge = document.getElementById('verdictBadge');
     badge.textContent = verdict.toUpperCase();
     badge.className   = `verdict-badge ${verdict}`;
 
-    const confPct  = Math.round(confidence * 100);
+    const confPct = Math.round(confidence * 100);
     document.getElementById('confPct').textContent  = confPct + '%';
     document.getElementById('confFill').style.width = confPct + '%';
 
-    // Evidence
     const listEl = document.getElementById('evidenceList');
     const empEl  = document.getElementById('evidenceEmpty');
 
     if (evidence && evidence.length) {
       empEl.style.display  = 'none';
       listEl.style.display = 'flex';
-      listEl.innerHTML = '';
+      listEl.innerHTML     = '';
 
       evidence
         .slice()
         .sort((a, b) => Math.abs(b.score_contribution) - Math.abs(a.score_contribution))
         .forEach((ev, i) => {
-          const pos = ev.score_contribution > 0;
+          const pos  = ev.score_contribution > 0;
           const item = document.createElement('div');
           item.className = 'evidence-item';
           item.style.animationDelay = (i * 60) + 'ms';
           item.innerHTML = `
             <div class="sev-bar ${ev.severity}"></div>
             <div>
-              <div class="ev-label">${escHtml(ev.label)}</div>
-              <div class="ev-desc">${escHtml(ev.description)}</div>
+              <div class="ev-label">${esc(ev.label)}</div>
+              <div class="ev-desc">${esc(ev.description)}</div>
             </div>
-            <div class="ev-score ${pos ? 'pos' : 'neg'}">
-              ${pos ? '+' : ''}${ev.score_contribution}
-            </div>
+            <div class="ev-score ${pos ? 'pos' : 'neg'}">${pos ? '+' : ''}${ev.score_contribution}</div>
           `;
           listEl.appendChild(item);
         });
@@ -793,7 +587,6 @@
       listEl.style.display = 'none';
     }
 
-    // NLP Entities
     const entPanel = document.getElementById('entitiesPanel');
     const chips    = document.getElementById('entityChips');
     if (nlp_entities && nlp_entities.length) {
@@ -805,7 +598,7 @@
         if (seen.has(key)) return;
         seen.add(key);
         const c = document.createElement('span');
-        c.className = `chip ${ent.label}`;
+        c.className   = `chip ${ent.label}`;
         c.textContent = `${ent.text} · ${ent.label}`;
         chips.appendChild(c);
       });
@@ -813,30 +606,24 @@
       entPanel.style.display = 'none';
     }
 
-    // Graph stats
     const graphPanel = document.getElementById('graphPanel');
     const statGrid   = document.getElementById('statGrid');
-    if (graph_stats && graph_stats.status !== 'unavailable' && Object.keys(graph_stats).length > 1) {
+    if (graph_stats && graph_stats.status !== 'unavailable' && graph_stats.status !== 'error') {
       graphPanel.style.display = 'block';
       statGrid.innerHTML = '';
-
       const statMap = {
-        'sender_known':     { label: 'Sender Known',    fmt: v => v ? 'YES' : 'NO' },
-        'recipient_known':  { label: 'Recip. Known',    fmt: v => v ? 'YES' : 'NO' },
-        'prior_contact':    { label: 'Prior Contact',   fmt: v => v ? 'YES' : 'NO' },
-        'sender_degree':    { label: 'Connections',     fmt: v => v },
-        'sender_pagerank':  { label: 'PageRank',        fmt: v => v.toFixed(4) },
-        'total_nodes':      { label: 'Network Size',    fmt: v => v.toLocaleString() },
+        sender_known:    { label: 'Sender Known',  fmt: v => v ? 'YES' : 'NO' },
+        recipient_known: { label: 'Recip. Known',  fmt: v => v ? 'YES' : 'NO' },
+        prior_contact:   { label: 'Prior Contact', fmt: v => v ? 'YES' : 'NO' },
+        sender_degree:   { label: 'Connections',   fmt: v => v },
+        email_weight:    { label: 'Emails Shared', fmt: v => v },
+        total_nodes:     { label: 'Network Size',  fmt: v => v.toLocaleString() },
       };
-
       Object.entries(statMap).forEach(([key, conf]) => {
         if (!(key in graph_stats)) return;
         const box = document.createElement('div');
         box.className = 'stat-box';
-        box.innerHTML = `
-          <div class="stat-val">${conf.fmt(graph_stats[key])}</div>
-          <div class="stat-key">${conf.label}</div>
-        `;
+        box.innerHTML = `<div class="stat-val">${conf.fmt(graph_stats[key])}</div><div class="stat-key">${conf.label}</div>`;
         statGrid.appendChild(box);
       });
     } else {
@@ -844,13 +631,12 @@
     }
   }
 
-  function escHtml(str) {
+  function esc(str) {
     return String(str)
       .replace(/&/g,'&amp;').replace(/</g,'&lt;')
       .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
-  // Allow Enter to submit from single-line inputs
   document.querySelectorAll('input').forEach(el => {
     el.addEventListener('keydown', e => { if (e.key === 'Enter') analyze(); });
   });
