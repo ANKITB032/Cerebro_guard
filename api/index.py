@@ -245,6 +245,24 @@ class handler(BaseHTTPRequestHandler):
         self._cors()
         self.end_headers()
 
+    def do_GET(self):
+        self.send_response(200)
+        self._cors()
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.end_headers()
+        try:
+            # Bulletproof pathfinding: searches root, public, and parent directories
+            html_paths = ["index.html", "public/index.html", "../index.html"]
+            html_content = b"<h1>CerebroGuard API Active</h1><p>UI file not found.</p>"
+            for path in html_paths:
+                if os.path.exists(path):
+                    with open(path, "rb") as f:
+                        html_content = f.read()
+                    break
+            self.wfile.write(html_content)
+        except Exception:
+            self.wfile.write(b"<h1>CerebroGuard API Active</h1>")
+
     def do_POST(self):
         try:
             length  = int(self.headers.get("Content-Length", 0))
