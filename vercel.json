@@ -1,4 +1,14 @@
 {
+  "builds": [
+    {
+      "src": "api/**/*.py",
+      "use": "@vercel/python"
+    },
+    {
+      "src": "public/**/*",
+      "use": "@vercel/static"
+    }
+  ],
   "rewrites": [
     { "source": "/analyze", "destination": "/api/analyze" }
   ]
