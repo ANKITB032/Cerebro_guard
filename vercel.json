@@ -1,5 +1,5 @@
 {
   "rewrites": [
-    { "source": "/analyze", "destination": "/api/analyze" }
+    { "source": "/analyze", "destination": "/api/index" }
   ]
 }
