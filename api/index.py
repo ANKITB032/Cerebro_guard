@@ -1,6 +1,6 @@
 """
-api/analyze.py — CerebroGuard v2 (Vercel Serverless)
-Queries Neo4j Aura for graph intelligence + spaCy/regex NLP
+api/index.py — CerebroGuard v2 (Vercel Serverless - Lightweight)
+Queries Neo4j Aura for graph intelligence + regex NLP (spaCy removed for Vercel limits)
 """
 import re
 import os
@@ -9,7 +9,6 @@ import logging
 from http.server import BaseHTTPRequestHandler
 
 from neo4j import GraphDatabase
-import spacy
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -20,8 +19,6 @@ NEO4J_USERNAME = os.environ.get("NEO4J_USERNAME", "neo4j")
 NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD", "")
 
 _driver = None
-_nlp    = None
-
 
 def get_driver():
     global _driver
@@ -30,18 +27,7 @@ def get_driver():
     return _driver
 
 
-def get_nlp():
-    global _nlp
-    if _nlp is None:
-        try:
-            _nlp = spacy.load("en_core_web_sm")
-        except Exception as e:
-            logger.warning(f"spaCy load failed: {e}")
-    return _nlp
-
-
 # ── Threat patterns ───────────────────────────────────────────────────────────
-
 URGENCY_PATTERNS = [
     r"\burgent\b", r"\bimmediately\b", r"\bASAP\b", r"\bdeadline\b",
     r"\bexpires?\b", r"\bact now\b", r"\btime.sensitive\b", r"\bwithin \d+ hours?\b",
@@ -67,13 +53,11 @@ SUSPICIOUS_DOMAINS = [
     r"paypa[l1]", r"app[l1]e", r"arnazon",
 ]
 
-
 def match_count(text, patterns):
     return sum(1 for p in patterns if re.search(p, text, re.IGNORECASE))
 
 
 # ── Graph analysis via Neo4j ──────────────────────────────────────────────────
-
 def analyze_graph(sender, recipient):
     factors = []
     stats   = {}
@@ -84,27 +68,23 @@ def analyze_graph(sender, recipient):
 
     try:
         with driver.session() as session:
-            # Check sender existence + degree
             sender_result = session.run("""
                 OPTIONAL MATCH (s:Person {email: $email})
                 RETURN s IS NOT NULL AS exists,
                        CASE WHEN s IS NOT NULL
-                            THEN size([(s)-[:EMAILED]->() | 1]) +
-                                 size([()-[:EMAILED]->(s) | 1])
+                            THEN size([(s)-[:EMAILED]->() | 1]) + size([()-[:EMAILED]->(s) | 1])
                             ELSE 0 END AS degree
             """, email=sender).single()
 
             sender_known  = sender_result["exists"]
             sender_degree = sender_result["degree"]
 
-            # Check recipient existence
             recip_result = session.run("""
                 OPTIONAL MATCH (r:Person {email: $email})
                 RETURN r IS NOT NULL AS exists
             """, email=recipient).single()
             recipient_known = recip_result["exists"]
 
-            # Check prior contact
             contact_result = session.run("""
                 OPTIONAL MATCH (s:Person {email: $sender})-[r:EMAILED]->(t:Person {email: $recipient})
                 OPTIONAL MATCH (t2:Person {email: $recipient})-[r2:EMAILED]->(s2:Person {email: $sender})
@@ -115,7 +95,6 @@ def analyze_graph(sender, recipient):
             has_contact  = contact_result["has_contact"]
             email_weight = contact_result["total_weight"]
 
-            # Total node count
             count_result = session.run("MATCH (p:Person) RETURN count(p) AS total").single()
             total_nodes  = count_result["total"]
 
@@ -130,45 +109,35 @@ def analyze_graph(sender, recipient):
 
         if not sender_known:
             factors.append({
-                "id": "graph_unknown_sender",
-                "label": "Unknown Sender",
+                "id": "graph_unknown_sender", "label": "Unknown Sender",
                 "description": "Sender has no history in the Enron communication network",
-                "severity": "high",
-                "score_contribution": 30,
+                "severity": "high", "score_contribution": 30,
             })
         else:
             if sender_degree < 3:
                 factors.append({
-                    "id": "graph_low_degree",
-                    "label": "Few Network Connections",
+                    "id": "graph_low_degree", "label": "Few Network Connections",
                     "description": f"Sender has only {sender_degree} connections — unusual for a legitimate address",
-                    "severity": "medium",
-                    "score_contribution": 20,
+                    "severity": "medium", "score_contribution": 20,
                 })
             else:
                 factors.append({
-                    "id": "graph_trusted_sender",
-                    "label": "Established Network Node",
+                    "id": "graph_trusted_sender", "label": "Established Network Node",
                     "description": f"Sender has {sender_degree} known connections in the network",
-                    "severity": "low",
-                    "score_contribution": -15,
+                    "severity": "low", "score_contribution": -15,
                 })
 
         if not has_contact:
             factors.append({
-                "id": "graph_no_prior_contact",
-                "label": "No Prior Contact",
+                "id": "graph_no_prior_contact", "label": "No Prior Contact",
                 "description": "No previous communication between sender and recipient",
-                "severity": "medium",
-                "score_contribution": 20,
+                "severity": "medium", "score_contribution": 20,
             })
         else:
             factors.append({
-                "id": "graph_prior_contact",
-                "label": "Prior Communication Found",
+                "id": "graph_prior_contact", "label": "Prior Communication Found",
                 "description": f"Sender and recipient have exchanged {email_weight} email(s) before",
-                "severity": "low",
-                "score_contribution": -10,
+                "severity": "low", "score_contribution": -10,
             })
 
     except Exception as e:
@@ -179,10 +148,9 @@ def analyze_graph(sender, recipient):
 
 
 # ── NLP analysis ──────────────────────────────────────────────────────────────
-
 def analyze_nlp(text):
     factors  = []
-    entities = []
+    entities = [] # Keeping empty to prevent frontend crashes
 
     urgency_hits = match_count(text, URGENCY_PATTERNS)
     money_hits   = match_count(text, MONEY_PATTERNS)
@@ -194,62 +162,37 @@ def analyze_nlp(text):
         factors.append({
             "id": "nlp_urgency", "label": "Urgency Language",
             "description": f"Detected {urgency_hits} urgency indicator(s) — common pressure tactic",
-            "severity": "high" if urgency_hits >= 3 else "medium",
-            "score_contribution": min(25, urgency_hits * 7),
+            "severity": "high" if urgency_hits >= 3 else "medium", "score_contribution": min(25, urgency_hits * 7),
         })
     if money_hits:
         factors.append({
             "id": "nlp_money", "label": "Financial References",
             "description": f"Found {money_hits} financial indicator(s): amounts, wire transfers, or crypto",
-            "severity": "high" if money_hits >= 3 else "medium",
-            "score_contribution": min(20, money_hits * 5),
+            "severity": "high" if money_hits >= 3 else "medium", "score_contribution": min(20, money_hits * 5),
         })
     if cred_hits:
         factors.append({
             "id": "nlp_credentials", "label": "Credential Harvesting Language",
             "description": f"Detected {cred_hits} credential-seeking phrase(s)",
-            "severity": "critical",
-            "score_contribution": min(30, cred_hits * 10),
+            "severity": "critical", "score_contribution": min(30, cred_hits * 10),
         })
     if social_hits:
         factors.append({
             "id": "nlp_social_engineering", "label": "Social Engineering Tactics",
             "description": "Detected secrecy or authority impersonation language",
-            "severity": "high",
-            "score_contribution": min(25, social_hits * 12),
+            "severity": "high", "score_contribution": min(25, social_hits * 12),
         })
     if domain_hits:
         factors.append({
             "id": "nlp_suspicious_urls", "label": "Suspicious URLs",
             "description": f"Found {domain_hits} suspicious link(s): shortened URLs or raw IPs",
-            "severity": "critical",
-            "score_contribution": min(35, domain_hits * 15),
+            "severity": "critical", "score_contribution": min(35, domain_hits * 15),
         })
-
-    nlp = get_nlp()
-    if nlp:
-        try:
-            doc = nlp(text[:10_000])
-            for ent in doc.ents:
-                if ent.label_ in ("MONEY", "ORG", "PERSON", "GPE", "DATE"):
-                    entities.append({"text": ent.text, "label": ent.label_,
-                                     "start": ent.start_char, "end": ent.end_char})
-            money_ents = [e for e in entities if e["label"] == "MONEY"]
-            if money_ents:
-                factors.append({
-                    "id": "nlp_ner_money", "label": "NER: Monetary Entities",
-                    "description": f"spaCy identified {len(money_ents)} monetary reference(s) in body",
-                    "severity": "medium",
-                    "score_contribution": len(money_ents) * 4,
-                })
-        except Exception as e:
-            logger.warning(f"spaCy NER failed: {e}")
 
     return {"factors": factors, "entities": entities}
 
 
 # ── Structural checks ─────────────────────────────────────────────────────────
-
 def analyze_structure(sender, recipient, cc, subject):
     factors = []
 
@@ -296,9 +239,7 @@ def analyze_structure(sender, recipient, cc, subject):
 
 
 # ── Vercel handler ────────────────────────────────────────────────────────────
-
 class handler(BaseHTTPRequestHandler):
-
     def do_OPTIONS(self):
         self.send_response(200)
         self._cors()
@@ -335,8 +276,7 @@ class handler(BaseHTTPRequestHandler):
             )
 
             graph_ok = graph_result["stats"].get("status") not in ("unavailable", "error")
-            nlp_ok   = get_nlp() is not None
-            engines  = int(graph_ok) + int(nlp_ok) + 1
+            engines  = int(graph_ok) + 2 
             confidence = round(0.5 + (engines / 3) * 0.45, 3)
 
             self._respond(200, {
