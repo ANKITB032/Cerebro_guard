@@ -18,6 +18,12 @@ NEO4J_URI      = os.environ.get("NEO4J_URI", "")
 NEO4J_USERNAME = os.environ.get("NEO4J_USERNAME", "neo4j")
 NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD", "")
 
+# ── Google OAuth Constants ────────────────────────────────────────────────────
+GOOGLE_CLIENT_ID     = os.environ.get("GOOGLE_CLIENT_ID", "")
+GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
+GOOGLE_REDIRECT_URI  = "https://cerebro-guard.vercel.app/api/callback"
+GMAIL_SCOPES         = "https://www.googleapis.com/auth/gmail.readonly"
+
 _driver = None
 
 def get_driver():
@@ -25,6 +31,62 @@ def get_driver():
     if _driver is None and NEO4J_URI:
         _driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USERNAME, NEO4J_PASSWORD))
     return _driver
+
+
+# ── OAuth Helper Functions ────────────────────────────────────────────────────
+def build_auth_url():
+    import urllib.parse
+    params = {
+        "client_id":     GOOGLE_CLIENT_ID,
+        "redirect_uri":  GOOGLE_REDIRECT_URI,
+        "response_type": "code",
+        "scope":         GMAIL_SCOPES,
+        "access_type":   "offline",   # gets refresh_token
+        "prompt":        "consent",   # force consent to always get refresh_token
+    }
+    return "https://accounts.google.com/o/oauth2/v2/auth?" + urllib.parse.urlencode(params)
+
+
+def exchange_code_for_tokens(code):
+    import urllib.request, urllib.parse
+    payload = urllib.parse.urlencode({
+        "code":          code,
+        "client_id":     GOOGLE_CLIENT_ID,
+        "client_secret": GOOGLE_CLIENT_SECRET,
+        "redirect_uri":  GOOGLE_REDIRECT_URI,
+        "grant_type":    "authorization_code",
+    }).encode()
+    req = urllib.request.Request(
+        "https://oauth2.googleapis.com/token",
+        data=payload,
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        return json.loads(resp.read())
+
+
+def store_token_in_neo4j(token_data):
+    """Upsert a single GmailToken node — one token set per deployment."""
+    driver = get_driver()
+    if not driver:
+        raise RuntimeError("Neo4j unavailable")
+    with driver.session() as session:
+        session.run("""
+            MERGE (t:GmailToken {id: 'primary'})
+            SET t.access_token  = $access_token,
+                t.refresh_token = $refresh_token,
+                t.expires_in    = $expires_in,
+                t.scope         = $scope,
+                t.token_type    = $token_type,
+                t.stored_at     = timestamp()
+        """,
+            access_token  = token_data.get("access_token", ""),
+            refresh_token = token_data.get("refresh_token", ""),
+            expires_in    = token_data.get("expires_in", 3600),
+            scope         = token_data.get("scope", ""),
+            token_type    = token_data.get("token_type", "Bearer"),
+        )
 
 
 # ── Threat patterns ───────────────────────────────────────────────────────────
@@ -246,6 +308,64 @@ class handler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):
+        from urllib.parse import urlparse, parse_qs
+        parsed = urlparse(self.path)
+        path   = parsed.path.rstrip("/")
+        qs     = parse_qs(parsed.query)
+
+        # ── /api/connect → redirect to Google consent screen ─────────────────
+        if path == "/api/connect":
+            url = build_auth_url()
+            self.send_response(302)
+            self._cors()
+            self.send_header("Location", url)
+            self.end_headers()
+            return
+        
+        # Inside your do_GET function in api/index.py
+        if path == "/api/keep-alive":
+            driver = get_driver()
+            if driver:
+                with driver.session() as session:
+                    # This tiny write query resets the 72-hour inactivity timer
+                    session.run("MERGE (k:KeepAlive {id: 'ping'}) SET k.lastPing = timestamp()")
+                self._html_response(200, "Database pinged successfully.")
+            return
+
+        # ── /api/callback → exchange code, store token, show result page ──────
+        if path == "/api/callback":
+            code  = qs.get("code",  [None])[0]
+            error = qs.get("error", [None])[0]
+
+            if error or not code:
+                self._html_response(400, f"<h2>OAuth Error</h2><pre>{error or 'no code returned'}</pre>")
+                return
+
+            try:
+                token_data = exchange_code_for_tokens(code)
+                store_token_in_neo4j(token_data)
+                self._html_response(200, """
+                    <h2 style='color:#00e676;font-family:monospace'>✓ Gmail Connected</h2>
+                    <p style='font-family:monospace;color:#cdd9e5'>
+                        Access token stored in Neo4j.<br>
+                        Refresh token secured. You can close this tab.
+                    </p>
+                """)
+            except Exception as e:
+                logger.error(f"OAuth callback error: {e}")
+                self._html_response(500, f"<h2>Token Exchange Failed</h2><pre>{e}</pre>")
+            return
+
+        # ── /api/keep-alive → prevent Neo4j from pausing (Bonus!) ─────────────
+        if path == "/api/keep-alive":
+            driver = get_driver()
+            if driver:
+                with driver.session() as session:
+                    session.run("MERGE (k:KeepAlive {id: 'ping'}) SET k.lastPing = timestamp()")
+                self._html_response(200, "<p>Database pinged successfully.</p>")
+            return
+
+        # ── default → serve index.html ────────────────────────────────────────
         self.send_response(200)
         self._cors()
         self.send_header("Content-Type", "text/html; charset=utf-8")
@@ -254,9 +374,9 @@ class handler(BaseHTTPRequestHandler):
             # Bulletproof pathfinding: searches root, public, and parent directories
             html_paths = ["index.html", "public/index.html", "../index.html"]
             html_content = b"<h1>CerebroGuard API Active</h1><p>UI file not found.</p>"
-            for path in html_paths:
-                if os.path.exists(path):
-                    with open(path, "rb") as f:
+            for p in html_paths:
+                if os.path.exists(p):
+                    with open(p, "rb") as f:
                         html_content = f.read()
                     break
             self.wfile.write(html_content)
@@ -323,3 +443,17 @@ class handler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Origin",  "*")
         self.send_header("Access-Control-Allow-Methods", "POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
+
+    def _html_response(self, status, body_html):
+        page = f"""<!DOCTYPE html><html><head>
+        <meta charset='UTF-8'/>
+        <style>body{{background:#060a0f;color:#cdd9e5;font-family:monospace;
+        display:flex;align-items:center;justify-content:center;height:100vh;margin:0;}}
+        div{{max-width:480px;padding:32px;border:1px solid #1a2a3a;}}</style>
+        </head><body><div>{body_html}</div></body></html>""".encode()
+        self.send_response(status)
+        self._cors()
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", len(page))
+        self.end_headers()
+        self.wfile.write(page)
