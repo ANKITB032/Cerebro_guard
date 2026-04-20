@@ -373,6 +373,11 @@
       transition: background 0.2s, box-shadow 0.2s;">
     ⬡ Connect Gmail
   </a>
+  <button id="syncBtn" onclick="syncGraph()" class="badge" style="
+      background:transparent; border-color:#00e676; color:#00e676; 
+      cursor:pointer; transition: background 0.2s, box-shadow 0.2s;">
+      ⟳ Sync Graph
+  </button>
   </div>
 </header>
 
@@ -510,6 +515,21 @@
     t.textContent = msg;
     t.classList.add('show');
     setTimeout(() => t.classList.remove('show'), 4000);
+  }
+
+  async function syncGraph() {
+    showToast('Syncing emails to graph... this may take 20 seconds.');
+    try {
+      const res = await fetch('https://cerebro-guard.vercel.app/api/sync-graph');
+      const data = await res.json();
+      if (data.status === 'ok') {
+        showToast(`Success! Processed ${data.emails_processed} emails, added ${data.pairs_merged} connections.`);
+      } else {
+        showToast('Sync failed: ' + data.error);
+      }
+    } catch(e) {
+      showToast('Sync error: ' + e.message);
+    }
   }
 
   async function analyze() {

@@ -5,3 +5,4 @@ enron_mail_20150507/
 enron_mail_20150507.tar.gz
 maildir/
 *.tar.gz
+data/

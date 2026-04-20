@@ -6,6 +6,9 @@ import re
 import os
 import json
 import logging
+import time
+import urllib.request
+import urllib.parse
 from http.server import BaseHTTPRequestHandler
 
 from neo4j import GraphDatabase
@@ -33,22 +36,20 @@ def get_driver():
     return _driver
 
 
-# ── OAuth Helper Functions ────────────────────────────────────────────────────
+# ── OAuth & Gmail Helper Functions ────────────────────────────────────────────
 def build_auth_url():
-    import urllib.parse
     params = {
         "client_id":     GOOGLE_CLIENT_ID,
         "redirect_uri":  GOOGLE_REDIRECT_URI,
         "response_type": "code",
         "scope":         GMAIL_SCOPES,
-        "access_type":   "offline",   # gets refresh_token
-        "prompt":        "consent",   # force consent to always get refresh_token
+        "access_type":   "offline",   
+        "prompt":        "consent",   
     }
     return "https://accounts.google.com/o/oauth2/v2/auth?" + urllib.parse.urlencode(params)
 
 
 def exchange_code_for_tokens(code):
-    import urllib.request, urllib.parse
     payload = urllib.parse.urlencode({
         "code":          code,
         "client_id":     GOOGLE_CLIENT_ID,
@@ -67,7 +68,6 @@ def exchange_code_for_tokens(code):
 
 
 def store_token_in_neo4j(token_data):
-    """Upsert a single GmailToken node — one token set per deployment."""
     driver = get_driver()
     if not driver:
         raise RuntimeError("Neo4j unavailable")
@@ -87,6 +87,124 @@ def store_token_in_neo4j(token_data):
             scope         = token_data.get("scope", ""),
             token_type    = token_data.get("token_type", "Bearer"),
         )
+
+
+def get_valid_token():
+    driver = get_driver()
+    if not driver:
+        raise RuntimeError("Neo4j unavailable")
+
+    with driver.session() as session:
+        row = session.run("""
+            MATCH (t:GmailToken {id: 'primary'})
+            RETURN t.access_token  AS access_token,
+                   t.refresh_token AS refresh_token,
+                   t.expires_in    AS expires_in,
+                   t.stored_at     AS stored_at
+        """).single()
+
+    if not row:
+        raise RuntimeError("No GmailToken found — connect Gmail first")
+
+    stored_at_ms = row["stored_at"]
+    expires_in   = row["expires_in"] or 3600
+    age_seconds  = (time.time() * 1000 - stored_at_ms) / 1000
+
+    if age_seconds < (expires_in - 300):
+        return row["access_token"]
+
+    logger.info("Access token stale — refreshing")
+    payload = urllib.parse.urlencode({
+        "client_id":     GOOGLE_CLIENT_ID,
+        "client_secret": GOOGLE_CLIENT_SECRET,
+        "refresh_token": row["refresh_token"],
+        "grant_type":    "refresh_token",
+    }).encode()
+    req = urllib.request.Request(
+        "https://oauth2.googleapis.com/token",
+        data=payload,
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        new_token = json.loads(resp.read())
+
+    with driver.session() as session:
+        session.run("""
+            MATCH (t:GmailToken {id: 'primary'})
+            SET t.access_token = $access_token,
+                t.expires_in   = $expires_in,
+                t.stored_at    = timestamp()
+        """,
+            access_token = new_token["access_token"],
+            expires_in   = new_token.get("expires_in", 3600),
+        )
+
+    return new_token["access_token"]
+
+
+def fetch_recent_emails(max_results=50):
+    token   = get_valid_token()
+    headers = {"Authorization": f"Bearer {token}"}
+
+    list_url = (
+        "https://gmail.googleapis.com/gmail/v1/users/me/messages?"
+        + urllib.parse.urlencode({"maxResults": max_results, "fields": "messages/id"})
+    )
+    req = urllib.request.Request(list_url, headers=headers)
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        msg_ids = [m["id"] for m in json.loads(resp.read()).get("messages", [])]
+
+    emails = []
+    for msg_id in msg_ids:
+        detail_url = (
+            f"https://gmail.googleapis.com/gmail/v1/users/me/messages/{msg_id}?"
+            + urllib.parse.urlencode({
+                "format": "metadata",
+                "metadataHeaders": ["From", "To"],
+                "fields": "payload/headers",
+            }, doseq=True)
+        )
+        try:
+            req = urllib.request.Request(detail_url, headers=headers)
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                hdrs = json.loads(resp.read()).get("payload", {}).get("headers", [])
+            hdr_map = {h["name"].lower(): h["value"] for h in hdrs}
+            sender    = _extract_email(hdr_map.get("from", ""))
+            recipient = _extract_email(hdr_map.get("to", ""))
+            if sender and recipient:
+                emails.append({"sender": sender, "recipient": recipient})
+        except Exception as e:
+            logger.warning(f"Skipping message {msg_id}: {e}")
+
+    return emails
+
+
+def _extract_email(raw):
+    m = re.search(r"<([^>]+)>", raw)
+    addr = m.group(1) if m else raw.strip()
+    return addr.lower() if "@" in addr else ""
+
+
+def update_personal_graph(emails):
+    driver = get_driver()
+    if not driver:
+        raise RuntimeError("Neo4j unavailable")
+
+    from collections import Counter
+    pair_counts = Counter((e["sender"], e["recipient"]) for e in emails)
+
+    with driver.session() as session:
+        for (sender, recipient), count in pair_counts.items():
+            session.run("""
+                MERGE (s:Person {email: $sender})
+                MERGE (r:Person {email: $recipient})
+                MERGE (s)-[rel:EMAILED]->(r)
+                  ON CREATE SET rel.weight = $count
+                  ON MATCH  SET rel.weight = rel.weight + $count
+            """, sender=sender, recipient=recipient, count=count)
+
+    return {"pairs_merged": len(pair_counts), "emails_processed": len(emails)}
 
 
 # ── Threat patterns ───────────────────────────────────────────────────────────
@@ -212,7 +330,7 @@ def analyze_graph(sender, recipient):
 # ── NLP analysis ──────────────────────────────────────────────────────────────
 def analyze_nlp(text):
     factors  = []
-    entities = [] # Keeping empty to prevent frontend crashes
+    entities = [] 
 
     urgency_hits = match_count(text, URGENCY_PATTERNS)
     money_hits   = match_count(text, MONEY_PATTERNS)
@@ -290,13 +408,6 @@ def analyze_structure(sender, recipient, cc, subject):
             "severity": "low", "score_contribution": 5,
         })
 
-    if len(cc) > 10:
-        factors.append({
-            "id": "struct_mass_cc", "label": "Mass CC List",
-            "description": f"Email CC'd to {len(cc)} recipients — possible phishing blast",
-            "severity": "medium", "score_contribution": 12,
-        })
-
     return factors
 
 
@@ -322,14 +433,15 @@ class handler(BaseHTTPRequestHandler):
             self.end_headers()
             return
         
-        # Inside your do_GET function in api/index.py
-        if path == "/api/keep-alive":
-            driver = get_driver()
-            if driver:
-                with driver.session() as session:
-                    # This tiny write query resets the 72-hour inactivity timer
-                    session.run("MERGE (k:KeepAlive {id: 'ping'}) SET k.lastPing = timestamp()")
-                self._html_response(200, "Database pinged successfully.")
+        # ── /api/sync-graph → fetch Gmail headers + rebuild personal graph ────
+        if path == "/api/sync-graph":
+            try:
+                emails = fetch_recent_emails(max_results=50)
+                stats  = update_personal_graph(emails)
+                self._respond(200, {"status": "ok", **stats})
+            except Exception as e:
+                logger.error(f"Graph sync error: {e}")
+                self._respond(500, {"error": str(e)})
             return
 
         # ── /api/callback → exchange code, store token, show result page ──────
@@ -356,7 +468,7 @@ class handler(BaseHTTPRequestHandler):
                 self._html_response(500, f"<h2>Token Exchange Failed</h2><pre>{e}</pre>")
             return
 
-        # ── /api/keep-alive → prevent Neo4j from pausing (Bonus!) ─────────────
+        # ── /api/keep-alive → prevent Neo4j from pausing ──────────────────────
         if path == "/api/keep-alive":
             driver = get_driver()
             if driver:
@@ -371,7 +483,6 @@ class handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.end_headers()
         try:
-            # Bulletproof pathfinding: searches root, public, and parent directories
             html_paths = ["index.html", "public/index.html", "../index.html"]
             html_content = b"<h1>CerebroGuard API Active</h1><p>UI file not found.</p>"
             for p in html_paths:
@@ -441,7 +552,7 @@ class handler(BaseHTTPRequestHandler):
 
     def _cors(self):
         self.send_header("Access-Control-Allow-Origin",  "*")
-        self.send_header("Access-Control-Allow-Methods", "POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Methods", "POST, OPTIONS, GET")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
 
     def _html_response(self, status, body_html):
