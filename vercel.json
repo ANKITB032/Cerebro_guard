@@ -7,10 +7,5 @@
       "path": "/api/keep-alive",
       "schedule": "0 0 */2 * *"
     }
-  ],
-  "functions": {
-    "api/**/*": {
-      "maxDuration": 30
-    }
-  }
+  ]
 }
